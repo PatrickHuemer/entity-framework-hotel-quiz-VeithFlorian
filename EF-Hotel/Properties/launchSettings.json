@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "EF-Hotel": {
+      "commandName": "Project",
+      "commandLineArgs": "query"
+    }
+  }
+}

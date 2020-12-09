@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 var factory = new HotelContextFactory();
 var context = factory.CreateDbContext();
@@ -22,9 +21,17 @@ else if (args[0] == "query")
 {
     await QueryData();
 }
+else if (args[0] == "drop")
+{
+    await context.Database.ExecuteSqlRawAsync("DELETE FROM HotelHotelSpecial");
+    await context.Database.ExecuteSqlRawAsync("DELETE FROM Hotels");
+    await context.Database.ExecuteSqlRawAsync("DELETE FROM HotelSpecials");
+    await context.Database.ExecuteSqlRawAsync("DELETE FROM RoomPrices");
+    await context.Database.ExecuteSqlRawAsync("DELETE FROM RoomTypes");
+}
 
 async Task AddData()
-{
+{           
     HotelSpecial dogFriendly, organicFood, spa, sauna, indoorPool, outdoorPool;
     await context.HotelSpecials.AddRangeAsync(new[]
     {
@@ -138,7 +145,7 @@ async Task AddData()
         new Hotel()
         {
             Name = "Pension Marianne",
-            Address = "Am Hausberg 17, 134 Irgendwo",
+            Address = "Am Hausberg 17, 1234 Irgendwo",
             Specials = new List<HotelSpecial> { dogFriendly, organicFood},
             RoomTypes = new List<RoomType> { singleRoom3x10, doubleRoom10x15},
         },
@@ -167,7 +174,14 @@ async Task QueryData()
         Console.WriteLine($"{hotel.Address}");
         Console.WriteLine();
         Console.WriteLine("## Specials");
-        foreach (var special in hotel.Specials)
+        Console.WriteLine();
+        var specials = await context.Hotels
+            .Include(h => h.Specials)
+            .Where(h => h.Id == hotel.Id)
+            .SelectMany(h => h.Specials)
+            .ToArrayAsync();
+        
+        foreach (var special in specials)
         {
             Console.WriteLine($"* {special.Special}");
         }
@@ -210,8 +224,10 @@ class Hotel
 {
     public int Id { get; set; }
 
+    [MaxLength(50)]
     public string Name { get; set; }
 
+    [MaxLength(50)]
     public string Address { get; set; }
 
     public List<HotelSpecial> Specials { get; set; } = new();
@@ -236,8 +252,10 @@ class RoomType
 
     public int HotelId { get; set; }
 
+    [MaxLength(50)]
     public string Title { get; set; }
 
+    [MaxLength(100)]
     public string Description { get; set; }
 
     public int Size { get; set; }
@@ -278,6 +296,23 @@ class HotelContext : DbContext
     public DbSet<RoomType> RoomTypes { get; set; }
     
     public DbSet<RoomPrice> RoomPrices { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Hotel>()
+            .HasIndex(h => h.Id)
+            .IsUnique();
+        modelBuilder.Entity<HotelSpecial>()
+            .HasIndex(h => h.Id)
+            .IsUnique();
+        modelBuilder.Entity<RoomType>()
+            .HasIndex(h => h.Id)
+            .IsUnique();
+        modelBuilder.Entity<RoomPrice>()
+            .HasIndex(h => h.Id)
+            .IsUnique();
+        base.OnModelCreating(modelBuilder);
+    }
 }
 
 class HotelContextFactory : IDesignTimeDbContextFactory<HotelContext>
